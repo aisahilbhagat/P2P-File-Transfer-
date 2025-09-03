@@ -3,27 +3,33 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>WebRTC Voice Call (Manual Signaling)</title>
+<title>WebRTC Voice Call (Manual Copy-Paste)</title>
 <style>
 body { font-family: Arial; text-align: center; margin-top: 30px; }
-textarea { width: 80%; height: 100px; margin: 10px 0; }
+textarea { width: 80%; height: 80px; margin: 10px 0; }
 button { padding: 10px 20px; margin: 5px; font-size: 16px; cursor: pointer; }
 audio { display: block; margin: 20px auto; }
 </style>
 </head>
 <body>
-<h2>WebRTC Voice Call (Manual Signaling)</h2>
+<h2>WebRTC Voice Call (Manual Copy-Paste)</h2>
 
 <button id="startCall">Start Call (Create Offer)</button>
 <button id="answerCall">Answer Call</button>
 
-<h3>Local SDP / Offer</h3>
+<h3>Local SDP</h3>
 <textarea id="localSDP" readonly></textarea>
 
-<h3>Remote SDP / Answer</h3>
+<h3>Remote SDP</h3>
 <textarea id="remoteSDP"></textarea>
-
 <button id="setRemoteSDP">Set Remote SDP</button>
+
+<h3>Local ICE Candidates</h3>
+<textarea id="localICE" readonly></textarea>
+
+<h3>Remote ICE Candidates</h3>
+<textarea id="remoteICE"></textarea>
+<button id="addRemoteICE">Add Remote ICE</button>
 
 <audio id="localAudio" autoplay muted></audio>
 <audio id="remoteAudio" autoplay></audio>
