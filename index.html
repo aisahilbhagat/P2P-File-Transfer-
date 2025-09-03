@@ -1,232 +1,33 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>WebRTC P2P Call</title>
-    <!-- Tailwind CSS CDN -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <style>
-        body {
-            font-family: 'Inter', sans-serif;
-            background-color: #1a202c;
-            color: #e2e8f0;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
-        }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WebRTC Voice Call (Manual Signaling)</title>
+<style>
+body { font-family: Arial; text-align: center; margin-top: 30px; }
+textarea { width: 80%; height: 100px; margin: 10px 0; }
+button { padding: 10px 20px; margin: 5px; font-size: 16px; cursor: pointer; }
+audio { display: block; margin: 20px auto; }
+</style>
 </head>
-<body class="p-4">
-    <div class="bg-gray-800 p-8 rounded-xl shadow-lg w-full max-w-2xl">
-        <h1 class="text-3xl font-bold text-center mb-4 text-white">WebRTC Voice Call</h1>
-        <p class="text-center text-gray-400 mb-6">
-            This is a basic P2P voice calling service. To make a call, you must manually exchange the "offer" and "answer" data with the other person.
-        </p>
+<body>
+<h2>WebRTC Voice Call (Manual Signaling)</h2>
 
-        <!-- Status and Audio Elements -->
-        <div class="flex flex-col items-center mb-6 space-y-4">
-            <div id="status" class="text-lg font-semibold text-yellow-300">Status: Idle</div>
-            <audio id="localAudio" autoplay muted class="hidden"></audio>
-            <audio id="remoteAudio" autoplay class="rounded-xl w-full hidden"></audio>
-        </div>
+<button id="startCall">Start Call (Create Offer)</button>
+<button id="answerCall">Answer Call</button>
 
-        <div class="flex flex-col lg:flex-row lg:space-x-4 space-y-4 lg:space-y-0">
-            <!-- Local Offer/Answer Section -->
-            <div class="flex-1 bg-gray-700 p-4 rounded-xl">
-                <h2 class="text-xl font-semibold mb-2 text-white">Your Session Data</h2>
-                <p class="text-sm text-gray-400 mb-4">
-                    Copy this data and send it to the other party to initiate the call.
-                </p>
-                <textarea id="localData" rows="6" class="w-full p-2 bg-gray-900 text-green-400 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 transition duration-300"></textarea>
-                <button id="createOfferBtn" class="w-full mt-4 bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-xl transition duration-300 transform hover:scale-105">
-                    Create Offer
-                </button>
-                <button id="copyBtn" class="w-full mt-2 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-xl transition duration-300 transform hover:scale-105">
-                    Copy to Clipboard
-                </button>
-            </div>
+<h3>Local SDP / Offer</h3>
+<textarea id="localSDP" readonly></textarea>
 
-            <!-- Remote Offer/Answer Section -->
-            <div class="flex-1 bg-gray-700 p-4 rounded-xl">
-                <h2 class="text-xl font-semibold mb-2 text-white">Remote Session Data</h2>
-                <p class="text-sm text-gray-400 mb-4">
-                    Paste the data received from the other party here.
-                </p>
-                <textarea id="remoteData" rows="6" class="w-full p-2 bg-gray-900 text-red-400 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 transition duration-300"></textarea>
-                <button id="acceptOfferBtn" class="w-full mt-4 bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-xl transition duration-300 transform hover:scale-105">
-                    Accept Offer
-                </button>
-            </div>
-        </div>
+<h3>Remote SDP / Answer</h3>
+<textarea id="remoteSDP"></textarea>
 
-        <!-- Hang Up Button -->
-        <button id="hangUpBtn" class="w-full mt-6 bg-gray-600 hover:bg-gray-700 text-white font-bold py-3 px-6 rounded-xl transition duration-300 transform hover:scale-105">
-            Hang Up
-        </button>
-    </div>
+<button id="setRemoteSDP">Set Remote SDP</button>
 
-    <script>
-        // Use `const` to declare variables that will not be reassigned.
-        const statusEl = document.getElementById('status');
-        const localDataEl = document.getElementById('localData');
-        const remoteDataEl = document.getElementById('remoteData');
-        const localAudioEl = document.getElementById('localAudio');
-        const remoteAudioEl = document.getElementById('remoteAudio');
+<audio id="localAudio" autoplay muted></audio>
+<audio id="remoteAudio" autoplay></audio>
 
-        const createOfferBtn = document.getElementById('createOfferBtn');
-        const acceptOfferBtn = document.getElementById('acceptOfferBtn');
-        const hangUpBtn = document.getElementById('hangUpBtn');
-        const copyBtn = document.getElementById('copyBtn');
-
-        let localStream = null;
-        let peerConnection = null;
-
-        // Configuration for STUN servers to help with NAT traversal
-        const rtcConfig = {
-            iceServers: [
-                { urls: 'stun:stun.l.google.com:19302' },
-                { urls: 'stun:stun1.l.google.com:19302' }
-            ]
-        };
-
-        // Function to update the status message on the UI
-        function updateStatus(message) {
-            statusEl.textContent = `Status: ${message}`;
-        }
-
-        // 1. Get the local audio stream from the user's microphone
-        async function getLocalStream() {
-            try {
-                // Request access to the microphone
-                updateStatus('Requesting microphone access...');
-                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                localStream = stream;
-                localAudioEl.srcObject = stream; // Attach the stream to the local audio element
-                updateStatus('Microphone access granted. Ready to call.');
-                return stream;
-            } catch (err) {
-                // Log and update status if access is denied or an error occurs
-                console.error('Failed to get local stream:', err);
-                updateStatus('Error: Failed to get microphone access.');
-                return null;
-            }
-        }
-
-        // 2. Create the Peer Connection and add the local track
-        async function createPeerConnection() {
-            // Check if a stream is available
-            if (!localStream) {
-                const stream = await getLocalStream();
-                if (!stream) return;
-            }
-
-            // Create a new RTCPeerConnection
-            peerConnection = new RTCPeerConnection(rtcConfig);
-
-            // Add all tracks from the local stream to the peer connection
-            localStream.getTracks().forEach(track => {
-                peerConnection.addTrack(track, localStream);
-            });
-
-            // Set up event listeners for the peer connection
-            
-            // `onicecandidate` event fires when a new ICE candidate is generated
-            // These candidates are needed to establish the connection
-            peerConnection.onicecandidate = (event) => {
-                if (event.candidate) {
-                    // When a new candidate is available, add it to the local data.
-                    // This is part of the "offer" or "answer" exchange.
-                    localDataEl.value = JSON.stringify(peerConnection.localDescription);
-                }
-            };
-
-            // `ontrack` event fires when a remote track is received
-            peerConnection.ontrack = (event) => {
-                // Attach the remote stream to the remote audio element
-                remoteAudioEl.srcObject = event.streams[0];
-                updateStatus('Call connected.');
-            };
-
-            return peerConnection;
-        }
-
-        // 3. Create the "offer" to start the call
-        createOfferBtn.addEventListener('click', async () => {
-            updateStatus('Creating call offer...');
-            const pc = await createPeerConnection();
-            if (!pc) return;
-
-            // Create the offer and set it as the local description
-            const offer = await pc.createOffer();
-            await pc.setLocalDescription(offer);
-
-            // Display the offer in the local textarea for the user to copy
-            localDataEl.value = JSON.stringify(pc.localDescription);
-            updateStatus('Offer created. Copy the text above and send it to the other user.');
-        });
-        
-        // 4. Accept the "offer" from the other user and create an "answer"
-        acceptOfferBtn.addEventListener('click', async () => {
-            updateStatus('Accepting offer and creating answer...');
-            const pc = await createPeerConnection();
-            if (!pc) return;
-
-            try {
-                // Parse the remote offer from the textarea
-                const remoteOffer = JSON.parse(remoteDataEl.value);
-
-                // Set the remote offer as the remote description
-                await pc.setRemoteDescription(new RTCSessionDescription(remoteOffer));
-
-                // Create the answer and set it as the local description
-                const answer = await pc.createAnswer();
-                await pc.setLocalDescription(answer);
-
-                // Display the answer in the local textarea for the user to copy and send back
-                localDataEl.value = JSON.stringify(pc.localDescription);
-                updateStatus('Answer created. Copy the text above and send it back to the first user.');
-            } catch (err) {
-                console.error('Failed to accept offer:', err);
-                updateStatus('Error: Invalid remote data. Please copy and paste the full text.');
-            }
-        });
-
-        // 5. Hang up the call
-        hangUpBtn.addEventListener('click', () => {
-            if (peerConnection) {
-                peerConnection.close();
-                peerConnection = null;
-            }
-            if (localStream) {
-                localStream.getTracks().forEach(track => track.stop());
-                localStream = null;
-            }
-            localAudioEl.srcObject = null;
-            remoteAudioEl.srcObject = null;
-            localDataEl.value = '';
-            remoteDataEl.value = '';
-            updateStatus('Call ended.');
-        });
-
-        // Copy button functionality
-        copyBtn.addEventListener('click', () => {
-            const textToCopy = localDataEl.value;
-            if (textToCopy) {
-                navigator.clipboard.writeText(textToCopy).then(() => {
-                    updateStatus('Copied to clipboard!');
-                    setTimeout(() => updateStatus('Ready'), 2000);
-                }).catch(err => {
-                    console.error('Failed to copy text:', err);
-                    updateStatus('Failed to copy.');
-                });
-            }
-        });
-
-        // Automatically request local stream on page load
-        window.onload = getLocalStream;
-
-    </script>
+<script src="app.js"></script>
 </body>
 </html>
